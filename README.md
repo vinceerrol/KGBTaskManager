@@ -15,6 +15,7 @@ Features include:
 - Light/dark appearance, density preferences, reduced motion and keyboard support.
 - Team/assignment access enforced by the API. Development demo login is blocked in production.
 - Administrator screen for accounts, roles, deactivation and teams; task comments; file removal; editable templates and recurring workflows; password change. See [the October 2026 update](docs/OCTOBER_2026_UPDATE.md).
+- **Running on one office PC for the team**, free Gmail notifications and sending tasks to Messenger group chats: see [the local setup guide](docs/LOCAL_SETUP.md).
 - Private, signed file downloads, sign-in rate limiting, token expiry and overdue alerts. Deployment steps are in [the deployment guide](docs/DEPLOYMENT.md).
 
 ## Stack

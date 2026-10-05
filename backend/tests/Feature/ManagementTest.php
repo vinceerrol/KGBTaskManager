@@ -271,6 +271,27 @@ class ManagementTest extends TestCase
         $this->getJson('/api/tasks?recent_done_days=14')->assertOk()->assertJsonPath('meta.older_completed', 2);
     }
 
+    public function test_the_test_email_command_sends_one_notification_email(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $this->artisan('notifications:test-email', ['email' => 'someone@gmail.com'])->assertSuccessful();
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\TaskNotificationMail::class, fn ($mail) => $mail->hasTo('someone@gmail.com'));
+        $this->assertDatabaseCount('app_notifications', 0);
+    }
+
+    public function test_notification_emails_are_only_sent_when_switched_on(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $person = $this->user();
+        AppNotification::create(['user_id' => $person->id, 'title' => 'Off', 'message' => 'm']);
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+
+        config(['task_notifications.email_enabled' => true]);
+        AppNotification::create(['user_id' => $person->id, 'title' => 'On', 'message' => 'm']);
+        $this->app->terminate();
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\TaskNotificationMail::class, fn ($mail) => $mail->hasTo($person->email));
+    }
+
     public function test_clearing_the_scheduled_start_starts_the_task_instead_of_stranding_it(): void
     {
         $admin = $this->user('ceo');
