@@ -231,6 +231,46 @@ class ManagementTest extends TestCase
         $this->assertCount(5, $this->getJson('/api/tasks?per_page=1000')->json('data'));
     }
 
+    public function test_old_completed_work_can_be_left_out_and_loaded_separately(): void
+    {
+        $admin = $this->user('ceo');
+        $owner = $this->user();
+        $this->task($admin, ['title' => 'Active A', 'assigned_to' => $owner->id]);
+        $this->task($admin, ['title' => 'Active B', 'status' => 'SCHEDULED', 'scheduled_at' => Carbon::now()->addDay()]);
+        $this->task($admin, ['title' => 'Done yesterday', 'status' => 'DONE', 'assigned_to' => $owner->id, 'completed_at' => Carbon::now()->subDay()]);
+        $this->task($admin, ['title' => 'Done long ago 1', 'status' => 'DONE', 'assigned_to' => $owner->id, 'completed_at' => Carbon::now()->subDays(40)]);
+        $this->task($admin, ['title' => 'Done long ago 2', 'status' => 'DONE', 'completed_at' => Carbon::now()->subDays(90)]);
+        $this->task($admin, ['title' => 'Done, no date', 'status' => 'DONE']);
+        Sanctum::actingAs($admin);
+
+        $this->assertCount(6, $this->getJson('/api/tasks')->assertJsonMissingPath('meta')->json('data'));
+
+        $recent = $this->getJson('/api/tasks?recent_done_days=14')->assertOk();
+        $this->assertEqualsCanonicalizing(['Active A', 'Active B', 'Done yesterday'], collect($recent->json('data'))->pluck('title')->all());
+        $recent->assertJsonPath('meta.older_completed', 3);
+
+        $older = $this->getJson('/api/tasks?status=DONE&done_older_than_days=14&per_page=2&page=2')->assertOk();
+        $older->assertJsonPath('meta.total', 3)->assertJsonPath('meta.last_page', 2);
+        $this->assertCount(1, $older->json('data'));
+        $this->assertCount(2, $this->getJson('/api/tasks?status=DONE&done_older_than_days=14&per_page=2')->json('data'));
+
+        Sanctum::actingAs($owner);
+        $mine = $this->getJson('/api/tasks/my-tasks?recent_done_days=14')->assertOk();
+        $this->assertEqualsCanonicalizing(['Active A', 'Done yesterday'], collect($mine->json('data'))->pluck('title')->all());
+    }
+
+    public function test_the_left_out_count_only_covers_work_the_viewer_can_see(): void
+    {
+        $admin = $this->user('ceo');
+        $member = $this->user();
+        $teamTask = $this->task($admin, ['status' => 'DONE', 'completed_at' => Carbon::now()->subDays(60)]);
+        $mine = $this->task($admin, ['status' => 'DONE', 'completed_at' => Carbon::now()->subDays(60), 'assigned_to' => $member->id]);
+        Sanctum::actingAs($member);
+        $this->getJson('/api/tasks?recent_done_days=14')->assertOk()->assertJsonPath('meta.older_completed', 1);
+        Sanctum::actingAs($admin);
+        $this->getJson('/api/tasks?recent_done_days=14')->assertOk()->assertJsonPath('meta.older_completed', 2);
+    }
+
     public function test_clearing_the_scheduled_start_starts_the_task_instead_of_stranding_it(): void
     {
         $admin = $this->user('ceo');

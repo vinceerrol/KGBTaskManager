@@ -10,6 +10,7 @@
         </button>
       </div>
       <div v-if="!results.length" class="empty-state"><SearchX aria-hidden="true" /><h3>No results for “{{ query }}”</h3><p>Try a task title, a team name or a different keyword.</p></div>
+      <p v-if="tasks.olderCompleted > 0" class="small muted">Searching active and recently completed tasks. {{ tasks.olderCompleted }} older completed {{ tasks.olderCompleted === 1 ? 'task is' : 'tasks are' }} not included; load them from All tasks.</p>
       <div v-if="tasks.error" class="error-banner" role="alert">{{ tasks.error }}<button class="btn" @click="tasks.fetchTasks()">Try again</button></div>
     </div>
   </BaseModal>

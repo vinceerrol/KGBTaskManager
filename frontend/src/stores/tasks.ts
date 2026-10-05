@@ -6,6 +6,10 @@ import type { Task, DashboardStats, TaskFilterOptions, TaskAttachment } from '@/
 import { toast } from '@/stores/toast'
 import { dateKey, isOverdue, parseDate, errorMessage, fieldErrors, assigneeLabel } from '@/utils/tasks'
 
+// Active work is bounded by workload but completed history only grows, so the app loads active tasks plus
+// recently completed ones and fetches older completed tasks a page at a time on request.
+export const RECENT_DONE_DAYS = 14
+const OLDER_PAGE_SIZE = 50
 export const defaultFilters = (): TaskFilterOptions => ({ status: 'all', team_id: '', assigned_to: '', priority: '', date_filter: 'all', search: '' })
 export const useTaskStore = defineStore('tasks', () => {
   const tasks = ref<Task[]>([])
@@ -16,6 +20,8 @@ export const useTaskStore = defineStore('tasks', () => {
   const error = ref(''), myError = ref(''), statsError = ref(''), detailError = ref('')
   const mutationError = ref(''), validationErrors = ref<Record<string, string>>({})
   const pending = ref<Record<number, boolean>>({})
+  // Completed tasks older than the window that are still on the server, and the state of fetching them.
+  const olderCompleted = ref(0), olderPage = ref(0), loadingOlder = ref(false), olderError = ref('')
   const filters = ref<TaskFilterOptions>(defaultFilters())
   let tasksRequest = 0, myRequest = 0, statsRequest = 0, detailRequest = 0, session = 0
   const filteredTasks = computed(() => tasks.value.filter(task => {
@@ -48,16 +54,30 @@ export const useTaskStore = defineStore('tasks', () => {
     const request = ++tasksRequest
     loading.value = true; error.value = ''
     try {
-      const res = await api.get('/tasks')
-      if (request === tasksRequest) tasks.value = res.data.data || res.data
+      const res = await api.get('/tasks', { params: { recent_done_days: RECENT_DONE_DAYS } })
+      if (request === tasksRequest) { tasks.value = res.data.data || res.data; olderCompleted.value = res.data.meta?.older_completed ?? 0; olderPage.value = 0; olderError.value = '' }
     } catch (err) { if (request === tasksRequest) error.value = errorMessage(err) }
     finally { if (request === tasksRequest) loading.value = false }
+  }
+  async function loadOlderCompleted() {
+    if (loadingOlder.value || olderCompleted.value <= 0) return
+    const current = session, page = olderPage.value + 1
+    loadingOlder.value = true; olderError.value = ''
+    try {
+      const res = await api.get('/tasks', { params: { status: 'DONE', done_older_than_days: RECENT_DONE_DAYS, per_page: OLDER_PAGE_SIZE, page } })
+      if (current !== session) return
+      const known = new Set(tasks.value.map(task => task.id))
+      tasks.value.push(...(res.data.data as Task[]).filter(task => !known.has(task.id)))
+      olderPage.value = page
+      olderCompleted.value = Math.max(0, (res.data.meta?.total ?? 0) - page * OLDER_PAGE_SIZE)
+    } catch (err) { if (current === session) olderError.value = errorMessage(err) }
+    finally { if (current === session) loadingOlder.value = false }
   }
   async function fetchMyTasks() {
     const request = ++myRequest
     myLoading.value = true; myError.value = ''
     try {
-      const res = await api.get('/tasks/my-tasks')
+      const res = await api.get('/tasks/my-tasks', { params: { recent_done_days: RECENT_DONE_DAYS } })
       if (request === myRequest) myTasks.value = res.data.data || res.data
     } catch (err) { if (request === myRequest) myError.value = errorMessage(err) }
     finally { if (request === myRequest) myLoading.value = false }
@@ -173,10 +193,11 @@ export const useTaskStore = defineStore('tasks', () => {
     ++session
     ++tasksRequest; ++myRequest; ++statsRequest; ++detailRequest
     tasks.value = []; myTasks.value = []; currentTask.value = null; stats.value = null
+    olderCompleted.value = 0; olderPage.value = 0; loadingOlder.value = false; olderError.value = ''
     filters.value = defaultFilters()
     loading.value = false; myLoading.value = false; statsLoading.value = false
     error.value = ''; myError.value = ''; statsError.value = ''; detailError.value = ''
     mutationError.value = ''; validationErrors.value = {}; pending.value = {}
   }
-  return { tasks, myTasks, currentTask, stats, filters, filteredTasks, loading, myLoading, statsLoading, error, myError, statsError, detailError, pending, mutationError, validationErrors, fetchTasks, fetchMyTasks, fetchDashboardStats, fetchTask, createTask, updateTask, startTask, completeTask, reopenTask, deleteTask, uploadAttachment, updateTaskInList, refreshOverview, reset }
+  return { tasks, myTasks, currentTask, stats, filters, filteredTasks, olderCompleted, loadingOlder, olderError, loadOlderCompleted, loading, myLoading, statsLoading, error, myError, statsError, detailError, pending, mutationError, validationErrors, fetchTasks, fetchMyTasks, fetchDashboardStats, fetchTask, createTask, updateTask, startTask, completeTask, reopenTask, deleteTask, uploadAttachment, updateTaskInList, refreshOverview, reset }
 })

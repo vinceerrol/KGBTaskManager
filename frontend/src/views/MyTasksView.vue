@@ -12,13 +12,14 @@
     </template>
     <EmptyState v-else-if="!visibleTasks.length && !tasks.myError" :title="tab === 'completed' ? 'Your finished work will live here' : tab === 'today' ? 'A clear schedule for today' : tab === 'overdue' ? 'Nothing overdue. Keep it going.' : 'You’re all caught up'" :description="tab === 'completed' ? 'Complete a task to build a record of your work and handoff notes.' : tab === 'active' ? 'No pending assignments right now. Check back when your team adds new work.' : 'Choose Active to see your other assignments.'" :icon="CircleCheck"><button v-if="tab !== 'active'" class="btn" @click="tab = 'active'">View active tasks</button></EmptyState>
     <TaskCollection v-else :tasks="visibleTasks" mode="list" @select-task="$emit('select-task',$event)" @complete-task="$emit('complete-task',$event)" @share-messenger="$emit('share-messenger',$event)" />
+    <p v-if="tab === 'completed'" class="small muted">Showing tasks you completed in the last {{ RECENT_DONE_DAYS }} days. Older completed work is in All tasks.</p>
     <p class="small muted row"><Clock3 aria-hidden="true" />Task dates are shown in Asia/Manila (UTC+8).</p>
   </div>
 </template>
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { RefreshCw, Focus, CircleAlert, CircleCheck, ArrowUpRight, Play, Check, Clock3 } from 'lucide-vue-next'
-import { useTaskStore } from '@/stores/tasks'
+import { useTaskStore, RECENT_DONE_DAYS } from '@/stores/tasks'
 import { isOverdue, dateKey, focusScore, formatDateTime, statusClass, parseDate } from '@/utils/tasks'
 import TaskCollection from '@/components/TaskCollection.vue'
 import LoadingState from '@/components/LoadingState.vue'

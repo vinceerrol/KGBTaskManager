@@ -92,13 +92,17 @@ class TaskController extends Controller
             });
         }
 
+        $this->applyCompletedWindow($query, $request);
+        // Only reported when the caller asked to leave old completed work out, so it knows how much it is missing.
+        $extra = $request->filled('recent_done_days') ? ['older_completed' => $this->olderCompleted($request)->count()] : [];
+
         // Opt-in paging: clients that send per_page get one page plus totals; everything else still gets the full list.
         if ($request->filled('per_page')) {
             $page = $query->orderByDesc('id')->paginate(min(100, max(1, (int) $request->per_page)));
 
             return response()->json([
                 'data' => $page->items(),
-                'meta' => ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'per_page' => $page->perPage(), 'total' => $page->total()],
+                'meta' => ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'per_page' => $page->perPage(), 'total' => $page->total()] + $extra,
             ]);
         }
 
@@ -106,7 +110,31 @@ class TaskController extends Controller
 
         return response()->json([
             'data' => $tasks,
-        ]);
+        ] + ($extra ? ['meta' => $extra] : []));
+    }
+
+    /**
+     * recent_done_days=N leaves out tasks completed more than N days ago; done_older_than_days=N returns only those.
+     * Active work is bounded by workload while completed history only grows, so this keeps the default list small.
+     */
+    private function applyCompletedWindow($query, Request $request): void
+    {
+        if ($request->filled('recent_done_days')) {
+            $cutoff = Carbon::now()->subDays(min(365, max(1, (int) $request->recent_done_days)));
+            $query->where(fn ($scope) => $scope->where('status', '!=', 'DONE')->orWhere('completed_at', '>=', $cutoff));
+        }
+        if ($request->filled('done_older_than_days')) {
+            $cutoff = Carbon::now()->subDays(min(365, max(1, (int) $request->done_older_than_days)));
+            $query->where('status', 'DONE')->where(fn ($scope) => $scope->whereNull('completed_at')->orWhere('completed_at', '<', $cutoff));
+        }
+    }
+
+    private function olderCompleted(Request $request)
+    {
+        $cutoff = Carbon::now()->subDays(min(365, max(1, (int) $request->recent_done_days)));
+
+        return Task::visibleTo($request->user())->where('status', 'DONE')
+            ->where(fn ($scope) => $scope->whereNull('completed_at')->orWhere('completed_at', '<', $cutoff));
     }
 
     public function myTasks(Request $request)
@@ -126,8 +154,9 @@ class TaskController extends Controller
                           ->whereIn('team_id', $userTeamIds);
                   });
             })
-            ->latest()
-            ->get();
+            ->latest();
+        $this->applyCompletedWindow($tasks, $request);
+        $tasks = $tasks->get();
 
         return response()->json([
             'data' => $tasks,
