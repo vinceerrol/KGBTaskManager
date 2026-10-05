@@ -1,0 +1,30 @@
+# Secrets and local config
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Dependencies and build output
+node_modules/
+vendor/
+dist/
+frontend/dist/
+
+# Local databases and uploads
+*.sqlite
+*.sqlite-journal
+backend/storage/app/public/*
+!backend/storage/app/public/.gitignore
+
+# Logs, caches, editor files
+*.log
+.phpunit.result.cache
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local AI/agent tooling
+.agents/
+.claude/

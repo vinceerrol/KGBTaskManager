@@ -1,0 +1,14 @@
+{
+  "name": "kcg-task-manager",
+  "version": "1.0.0",
+  "description": "Company Task & Workflow Management System - Source of Truth",
+  "scripts": {
+    "dev:backend": "cd backend && php artisan serve --port=8000",
+    "dev:frontend": "cd frontend && npm run dev",
+    "db:fresh": "cd backend && php artisan migrate:fresh --seed",
+    "tasks:check": "cd backend && php artisan tasks:check-scheduled"
+  },
+  "keywords": ["task-management", "workflow", "vue3", "laravel"],
+  "author": "KCG",
+  "license": "MIT"
+}
