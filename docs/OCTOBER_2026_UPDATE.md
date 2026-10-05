@@ -1,19 +1,24 @@
 # October 2026 update
 
-Written 5 October 2026 after a security, frontend and spec audit. **None of this has been run yet.** The session that wrote it could not execute `php`, `npm` or `git`, so the code was written and reviewed by reading only. Do the verification steps below before relying on any of it.
+Written 5 October 2026 after a security, frontend and spec audit.
 
-## Verify first
+## Verification status (5 October 2026)
+
+- Backend: `php artisan test` passes, 56 tests and 367 assertions, including the new `ManagementTest` and extra `TaskInteractionTest` cases.
+- Frontend: `npm test` passes 28 of 28, and `npm run build` (type-check plus production build) succeeds.
+- The two pending migrations (`add_brief_creation_to_tasks` and `add_management_features`) were applied to the local MySQL development database, and `php artisan attachments:make-private` found no old public files to move.
+- **Not yet verified:** nothing has been exercised in a browser against the running app, on a real host, or with real mail settings. Treat the first deployment as a rehearsal.
+
+To repeat the checks:
 
 ```powershell
 Set-Location backend
 php artisan migrate          # adds users.is_active and task_comments
-php artisan test             # includes new ManagementTest and extra TaskInteractionTest cases
+php artisan test
 Set-Location ..\frontend
 npm test
-npm run build                # runs the type-check
+npm run build
 ```
-
-Fix anything that fails before deploying. The new tests are the best map of what changed.
 
 ## Security
 
