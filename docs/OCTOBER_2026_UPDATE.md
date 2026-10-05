@@ -7,7 +7,8 @@ Written 5 October 2026 after a security, frontend and spec audit.
 - Backend: `php artisan test` passes, 56 tests and 367 assertions, including the new `ManagementTest` and extra `TaskInteractionTest` cases.
 - Frontend: `npm test` passes 28 of 28, and `npm run build` (type-check plus production build) succeeds.
 - The two pending migrations (`add_brief_creation_to_tasks` and `add_management_features`) were applied to the local MySQL development database, and `php artisan attachments:make-private` found no old public files to move.
-- **Not yet verified:** nothing has been exercised in a browser against the running app, on a real host, or with real mail settings. Treat the first deployment as a rehearsal.
+- Browser check (headless Chrome against the running app on a throwaway seeded SQLite database, not the real data): 15 of 15 checks passed with no console errors or server errors. It covered creating and deactivating an account, creating and deleting a team, the 60-card cap and "Show more" on 136 tasks, posting a comment, the upload-type hint, editing a template, the change-password validation, and an employee being kept out of `/people`.
+- **Not yet verified:** a real host, real mail settings, file upload and removal in the browser, the overdue alerts over real time, and phone-sized layouts of the new screens. Treat the first deployment as a rehearsal.
 
 To repeat the checks:
 
@@ -49,7 +50,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md), `backend/.env.production.example`, `frontend
 
 ## Not done
 
-- **Pagination in the interface.** `GET /api/tasks` now pages when asked (`?per_page=50&page=2`, capped at 100, response includes `meta`) and still returns everything otherwise. The frontend does not use it yet: it still loads the whole list and filters in the browser, which is fine for hundreds of tasks and slow at thousands. Switching the task store and every list view to server-side paging and filtering should be done with the app running.
+- **Server-side paging in the interface.** `GET /api/tasks` pages when asked (`?per_page=50&page=2`, capped at 100, response includes `meta`) and still returns everything otherwise. Task lists and board columns now draw 60 cards at a time with a "Show more" button, which removes the browser freeze. The frontend still downloads the whole list and filters it in the browser. That is fine for hundreds of tasks; revisit it when you pass about 2,000, because focus mode, saved views, the dashboard counts and search all read that list and would need to move to the server together.
 - **Messenger sending.** Sharing is still copy and paste; nothing posts to Messenger. Email is the supported automatic channel.
 - **Browser token storage.** Tokens remain in local storage. Moving to HTTP-only cookies would change how the frontend and backend deploy together.
 - **Form requests, API resources and policies** are not introduced; permission checks are still written in each controller.
